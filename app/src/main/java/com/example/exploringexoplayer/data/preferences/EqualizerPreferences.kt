@@ -1,7 +1,7 @@
 package com.example.exploringexoplayer.data.preferences
 
 import android.content.SharedPreferences
-import com.example.exploringexoplayer.ui.audioequaliser.AudioEffects
+import com.example.exploringexoplayer.data.model.AudioEffects
 import com.google.gson.Gson
 import javax.inject.Inject
 import javax.inject.Named

@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
@@ -56,6 +57,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -73,30 +75,14 @@ import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.hls.HlsMediaSource
 import androidx.media3.ui.PlayerView
+import com.example.exploringexoplayer.R
 
 var effectType = arrayListOf(
     "Custom", "Flat", "Acoustic", "Dance",
     "Hip Hop", "Jazz", "Pop", "Rock", "Podcast"
 )
 
-const val PRESET_CUSTOM = 0
-const val PRESET_FLAT = 1
-const val PRESET_ACOUSTIC = 2
-const val PRESET_DANCE_LOUNGE = 3
-const val PRESET_HIP_HOP = 4
-const val PRESET_JAZZ_BLUES = 5
-const val PRESET_POP = 6
-const val PRESET_ROCK = 7
-const val PRESET_PODCAST = 8
-
-val FLAT = arrayListOf(0.0, 0.0, 0.0, 0.0, 0.0)
-val ACOUSTIC = arrayListOf(0.44, 0.12, 0.12, 0.34, 0.2)
-val DANCE = arrayListOf(0.52, 0.08, 0.28, 0.48, 0.06)
-val HIP_HOPE = arrayListOf(0.44, 0.06, -0.14, 0.1, 0.38)
-val JAZZ = arrayListOf(0.32, 0.0, 0.22, 0.1, 0.2)
-val POP = arrayListOf(-0.14, 0.28, 0.38, 0.22, -0.2)
-val ROCK = arrayListOf(0.38, 0.2, -0.04, 0.02, 0.34)
-val PODCAST = arrayListOf(-0.12, 0.26, 0.36, 0.16, -0.2)
+const val M3U8_URL = "http://sample.vodobox.net/skate_phantom_flex_4k/skate_phantom_flex_4k.m3u8"
 
 @androidx.annotation.OptIn(UnstableApi::class) @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -105,7 +91,7 @@ fun AudioEqualizerView() {
         topBar = {
             TopAppBar(
                 title = {
-                    Text(text = "Exploring Exoplayer")
+                    Text(text = stringResource(R.string.top_app_bar_title))
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color.Black,
@@ -118,26 +104,20 @@ fun AudioEqualizerView() {
         val paddingValues = it
         val context = LocalContext.current
         val viewModel = hiltViewModel<AudioEqualizerViewModel>()
-        val audioEffects by viewModel.audioEffects.collectAsState()
 
         val enableEqualizer by viewModel.enableEqualizer.collectAsState()
 
-        DisposableEffect(key1 = Unit, effect = {
-            onDispose {
-                viewModel.onStop()
-            }
-        })
-
-
         val lifecycleOwner = LocalLifecycleOwner.current
 
-        val exoPlayer = ExoPlayerManager.getExoPlayer(context)
+        val exoPlayer = remember {
+            ExoPlayerManager.getExoPlayer(context)
+        }
 
         LaunchedEffect(key1 = Unit) {
             val dataSourceFactory = DefaultHttpDataSource.Factory()
 
             val uri = Uri.Builder()
-                .encodedPath("https://www.youtube.com/watch?v=zFHp6uj3aJ0")
+                .encodedPath(M3U8_URL)
                 .build()
             val mediaItem = MediaItem.Builder().setUri(uri).build()
 
@@ -154,21 +134,23 @@ fun AudioEqualizerView() {
             contentPadding = PaddingValues(top = it.calculateTopPadding())
         ) {
             item {
-                AndroidView(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .aspectRatio(1.4f)
-                        .padding(top = 16.dp)
-                        .background(Color.Black),
-                    factory = {
-                        PlayerView(context).apply {
-                            player = exoPlayer
-                            exoPlayer.repeatMode = Player.REPEAT_MODE_ONE
-                            exoPlayer.playWhenReady = false
-                            useController = true
+                Box(modifier = Modifier.fillMaxSize()){
+                    AndroidView(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .aspectRatio(1.4f)
+                            .padding(top = 16.dp)
+                            .background(Color.Black),
+                        factory = {
+                            PlayerView(context).apply {
+                                player = exoPlayer
+                                exoPlayer.repeatMode = Player.REPEAT_MODE_ONE
+                                exoPlayer.playWhenReady = false
+                                useController = true
+                            }
                         }
-                    }
-                )
+                    )
+                }
             }
 
             item {
@@ -182,7 +164,7 @@ fun AudioEqualizerView() {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Equalizer",
+                        text = stringResource(R.string.equalizer_title_text),
                         fontSize = MaterialTheme.typography.titleLarge.fontSize,
                         fontWeight = FontWeight.SemiBold,
                         color = Color.White
@@ -206,7 +188,7 @@ fun AudioEqualizerView() {
                 AnimatedVisibility(
                     visible = enableEqualizer,
                     enter = fadeIn() + slideInVertically { fullHeight -> -fullHeight / 2 },
-                    exit = fadeOut() + slideOutVertically { fullHeight -> -fullHeight / 2 }
+                    exit = fadeOut() + slideOutVertically { fullHeight -> -fullHeight / 3 }
                 ) {
                     EqualizerView(viewModel = viewModel)
                 }
@@ -218,103 +200,7 @@ fun AudioEqualizerView() {
                     enter = fadeIn() + slideInVertically { fullHeight -> -fullHeight / 2 },
                     exit = fadeOut() + slideOutVertically { fullHeight -> -fullHeight / 2 }
                 ) {
-                    Column {
-                        val groupedList = effectType.chunked(4)
-
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Divider(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(4.dp)
-                                    .clip(RoundedCornerShape(4.dp)),
-                                color = Color.White,
-                                thickness = 1.dp
-                            )
-
-                            Text(
-                                text = "Presets",
-                                fontSize = MaterialTheme.typography.titleMedium.fontSize,
-                                fontWeight = FontWeight.Medium,
-                                color = Color.White,
-                                modifier = Modifier.wrapContentWidth().weight(0.5f).padding(4.dp).zIndex(1f),
-                                textAlign = TextAlign.Center
-                            )
-
-
-                            Divider(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(4.dp)
-                                    .clip(RoundedCornerShape(4.dp)),
-                                color = Color.White,
-                                thickness = 1.dp
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(20.dp))
-
-                        for (itemList in groupedList) {
-                            BoxWithConstraints(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                            ) {
-                                val horizontalPadding =
-                                    if (maxWidth < 320.dp) 8.dp else if (maxWidth > 400.dp) 40.dp else 20.dp
-                                val horizontalSpacing = if (maxWidth > 400.dp) 24.dp else 16.dp
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 8.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(
-                                        space = horizontalSpacing,
-                                        alignment = Alignment.CenterHorizontally
-                                    ),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    for (item in itemList) {
-                                        val index by remember {
-                                            mutableIntStateOf(
-                                                effectType.indexOf(
-                                                    item
-                                                )
-                                            )
-                                        }
-                                        BoxWithConstraints(
-                                            modifier = Modifier
-                                                .wrapContentSize()
-                                                .border(
-                                                    1.dp,
-                                                    if (index == audioEffects?.selectedEffectType) Color.White else Color.Black,
-                                                    RoundedCornerShape(40.dp)
-                                                )
-                                                .clip(RoundedCornerShape(40.dp))
-                                                .clickable {
-                                                    viewModel.onSelectPreset(index)
-                                                }
-                                                .background(if (index == audioEffects?.selectedEffectType) Color.Black else Color.White),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Text(
-                                                text = item,
-                                                style = MaterialTheme.typography.bodySmall,
-                                                modifier = Modifier
-                                                    .padding(
-                                                        horizontal = horizontalPadding,
-                                                        vertical = 12.dp
-                                                    ),
-                                                fontSize = 14.sp,
-                                                color = if (index == audioEffects?.selectedEffectType) Color.White else Color.Black,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    PresetsView(viewModel)
                 }
             }
 
@@ -343,6 +229,111 @@ fun AudioEqualizerView() {
             }
         }
 
+    }
+}
+
+@Composable
+fun PresetsView(viewModel: AudioEqualizerViewModel) {
+    Column {
+        val audioEffects by viewModel.audioEffects.collectAsState()
+        val groupedList = effectType.chunked(4)
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Divider(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(4.dp)
+                    .clip(RoundedCornerShape(4.dp)),
+                color = Color.White,
+                thickness = 1.dp
+            )
+
+            Text(
+                text = stringResource(R.string.presets_title_text),
+                fontSize = MaterialTheme.typography.titleMedium.fontSize,
+                fontWeight = FontWeight.Medium,
+                color = Color.White,
+                modifier = Modifier
+                    .wrapContentWidth()
+                    .weight(0.5f)
+                    .padding(4.dp)
+                    .zIndex(1f),
+                textAlign = TextAlign.Center
+            )
+
+            Divider(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(4.dp)
+                    .clip(RoundedCornerShape(4.dp)),
+                color = Color.White,
+                thickness = 1.dp
+            )
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        for (itemList in groupedList) {
+            BoxWithConstraints(
+                modifier = Modifier
+                    .fillMaxWidth()
+            ) {
+                val horizontalPadding =
+                    if (maxWidth < 320.dp) 8.dp else if (maxWidth > 400.dp) 40.dp else 20.dp
+                val horizontalSpacing = if (maxWidth > 400.dp) 24.dp else 16.dp
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(
+                        space = horizontalSpacing,
+                        alignment = Alignment.CenterHorizontally
+                    ),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    for (item in itemList) {
+                        val index by remember {
+                            mutableIntStateOf(
+                                effectType.indexOf(
+                                    item
+                                )
+                            )
+                        }
+                        BoxWithConstraints(
+                            modifier = Modifier
+                                .wrapContentSize()
+                                .border(
+                                    1.dp,
+                                    if (index == audioEffects?.selectedEffectType) Color.White else Color.Black,
+                                    RoundedCornerShape(40.dp)
+                                )
+                                .clip(RoundedCornerShape(40.dp))
+                                .clickable {
+                                    viewModel.onSelectPreset(index)
+                                }
+                                .background(if (index == audioEffects?.selectedEffectType) Color.Black else Color.White),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = item,
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier
+                                    .padding(
+                                        horizontal = horizontalPadding,
+                                        vertical = 12.dp
+                                    ),
+                                fontSize = 14.sp,
+                                color = if (index == audioEffects?.selectedEffectType) Color.White else Color.Black,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
