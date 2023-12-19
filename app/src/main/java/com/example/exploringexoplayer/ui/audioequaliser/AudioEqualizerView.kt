@@ -1,6 +1,5 @@
 package com.example.exploringexoplayer.ui.audioequaliser
 
-import android.content.Context
 import android.net.Uri
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -72,10 +71,10 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultHttpDataSource
-import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.hls.HlsMediaSource
 import androidx.media3.ui.PlayerView
 import com.example.exploringexoplayer.R
+import com.example.exploringexoplayer.data.ExoPlayerManager
 
 var effectType = arrayListOf(
     "Custom", "Flat", "Acoustic", "Dance",
@@ -84,7 +83,7 @@ var effectType = arrayListOf(
 
 const val M3U8_URL = "http://sample.vodobox.net/skate_phantom_flex_4k/skate_phantom_flex_4k.m3u8"
 
-@androidx.annotation.OptIn(UnstableApi::class) @OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AudioEqualizerView() {
     Scaffold(
@@ -101,56 +100,15 @@ fun AudioEqualizerView() {
         },
         containerColor = Color(50, 145, 150, alpha = 150)
     ) {
-        val paddingValues = it
-        val context = LocalContext.current
         val viewModel = hiltViewModel<AudioEqualizerViewModel>()
-
         val enableEqualizer by viewModel.enableEqualizer.collectAsState()
-
-        val lifecycleOwner = LocalLifecycleOwner.current
-
-        val exoPlayer = remember {
-            ExoPlayerManager.getExoPlayer(context)
-        }
-
-        LaunchedEffect(key1 = Unit) {
-            val dataSourceFactory = DefaultHttpDataSource.Factory()
-
-            val uri = Uri.Builder()
-                .encodedPath(M3U8_URL)
-                .build()
-            val mediaItem = MediaItem.Builder().setUri(uri).build()
-
-            val internetVideoSource =
-                HlsMediaSource.Factory(dataSourceFactory).createMediaSource(mediaItem)
-
-            exoPlayer.setMediaSource(internetVideoSource)
-            exoPlayer.prepare()
-            viewModel.onStart(exoPlayer.audioSessionId)
-        }
 
         LazyColumn(
             modifier = Modifier.padding(horizontal = 16.dp),
             contentPadding = PaddingValues(top = it.calculateTopPadding())
         ) {
             item {
-                Box(modifier = Modifier.fillMaxSize()){
-                    AndroidView(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .aspectRatio(1.4f)
-                            .padding(top = 16.dp)
-                            .background(Color.Black),
-                        factory = {
-                            PlayerView(context).apply {
-                                player = exoPlayer
-                                exoPlayer.repeatMode = Player.REPEAT_MODE_ONE
-                                exoPlayer.playWhenReady = false
-                                useController = true
-                            }
-                        }
-                    )
-                }
+                VideoPlayerView(viewModel)
             }
 
             item {
@@ -208,27 +166,68 @@ fun AudioEqualizerView() {
                 Spacer(modifier = Modifier.height(20.dp))
             }
         }
+    }
+}
 
-        DisposableEffect(key1 = lifecycleOwner) {
-            val observer = LifecycleEventObserver { _, event ->
-                if (event == Lifecycle.Event.ON_RESUME) {
+@androidx.annotation.OptIn(UnstableApi::class)
+@Composable
+fun VideoPlayerView(viewModel: AudioEqualizerViewModel) {
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    val exoPlayer = remember { ExoPlayerManager.getExoPlayer(context) }
+
+    LaunchedEffect(key1 = Unit) {
+        val dataSourceFactory = DefaultHttpDataSource.Factory()
+
+        val uri = Uri.Builder().encodedPath(M3U8_URL).build()
+        val mediaItem = MediaItem.Builder().setUri(uri).build()
+
+        val internetVideoSource =
+            HlsMediaSource.Factory(dataSourceFactory).createMediaSource(mediaItem)
+
+        exoPlayer.setMediaSource(internetVideoSource)
+        exoPlayer.prepare()
+
+        // Will be used in later implementation for Equalizer
+        viewModel.onStart(exoPlayer.audioSessionId)
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        AndroidView(
+            modifier =
+            Modifier
+                .fillMaxWidth()
+                .aspectRatio(1.4f)
+                .padding(top = 16.dp)
+                .background(Color.Black),
+            factory = {
+                PlayerView(context).apply {
+                    player = exoPlayer
+                    exoPlayer.repeatMode = Player.REPEAT_MODE_ONE
                     exoPlayer.playWhenReady = false
-                } else if (event == Lifecycle.Event.ON_PAUSE) {
-                    exoPlayer.playWhenReady = false
+                    useController = true
                 }
             }
-            lifecycleOwner.lifecycle.addObserver(observer)
-            onDispose {
-                lifecycleOwner.lifecycle.removeObserver(observer)
+        )
+    }
+
+    DisposableEffect(key1 = lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                exoPlayer.playWhenReady = false
+            } else if (event == Lifecycle.Event.ON_PAUSE) {
+                exoPlayer.playWhenReady = false
             }
         }
-
-        DisposableEffect(key1 = Unit) {
-            onDispose {
-                ExoPlayerManager.releaseExoPlayer()
-            }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
         }
+    }
 
+    DisposableEffect(key1 = Unit) {
+        onDispose { ExoPlayerManager.releaseExoPlayer() }
     }
 }
 
@@ -403,21 +402,5 @@ fun EqualizerView(viewModel: AudioEqualizerViewModel) {
                 }
             }
         }
-    }
-}
-
-object ExoPlayerManager {
-    private var exoPlayer: ExoPlayer? = null
-
-    fun getExoPlayer(context: Context): ExoPlayer {
-        if (exoPlayer == null) {
-            exoPlayer = ExoPlayer.Builder(context).build()
-        }
-        return exoPlayer!!
-    }
-
-    fun releaseExoPlayer() {
-        exoPlayer?.release()
-        exoPlayer = null
     }
 }
